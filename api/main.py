@@ -132,7 +132,7 @@ async def evaluate_conversation(
     conversation_id: str,
     request: Dict[str, Any]
 ) -> Dict[str, Any]:
-    """Evaluate a conversation using RL-based metrics (Grad students only)"""
+    """Evaluate a conversation using RL-based metrics"""
     try:
         # Get conversation history
         history = memory.get_conversation_history(conversation_id)

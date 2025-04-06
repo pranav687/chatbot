@@ -26,7 +26,10 @@ class Reward:
     coherence: float
     relevance: float
     helpfulness: float
+    accuracy:float
+    user_satisfaction:float
     total: float
+    bonus:float
 
 class RLAgent:
     """Reinforcement Learning agent for improving chatbot responses"""
@@ -124,17 +127,48 @@ class RLAgent:
         coherence = metrics.get('coherence', 0.0)
         relevance = metrics.get('relevance', 0.0)
         helpfulness = metrics.get('helpfulness', 0.0)
+        accuracy = metrics.get('accuracy', 0.0)
+        user_satisfaction = metrics.get('user_satisfactionc', 0.0)
         
-        # Weighted sum of metrics
-        total = (0.3 * coherence + 0.4 * relevance + 0.3 * helpfulness)
+        # Updated weights based on importance
+        weights = {
+            'accuracy': 0.25,       # Factual correctness is crucial
+            'coherence': 0.20,      # Logical flow matters
+            'relevance': 0.25,      # Must address the query
+            'helpfulness': 0.15,    # Practical utility
+            'user_satisfaction': 0.15  # User experience
+        }
+        
+        # Calculate weighted total with non-linear bonuses
+        base_reward = (
+            weights['accuracy'] * accuracy +
+            weights['coherence'] * coherence +
+            weights['relevance'] * relevance +
+            weights['helpfulness'] * helpfulness +
+            weights['user_satisfaction'] * user_satisfaction
+        )
+        
+        # Add bonuses for excellent performance in key areas
+        bonus = 0
+        if accuracy > 0.9:
+            bonus += 0.05  # High accuracy bonus
+        if user_satisfaction > 0.85:
+            bonus += 0.03  # Delighted users bonus
+        if all(v > 0.7 for v in [accuracy, relevance]):
+            bonus += 0.02  # Core competency bonus
+            
+        total = min(base_reward + bonus, 1.0)  # Cap at 1.0
         
         return Reward(
+            accuracy=accuracy,
             coherence=coherence,
             relevance=relevance,
             helpfulness=helpfulness,
-            total=total
+            user_satisfaction=user_satisfaction,
+            total=total,
+            bonus=bonus
         )
-    
+        
     def save_q_table(self):
         """Save Q-table to file"""
         os.makedirs('evaluation/data', exist_ok=True)
