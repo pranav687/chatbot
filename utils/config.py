@@ -58,6 +58,10 @@ CONCORDIA_CS_PROGRAM_INFO = {
         "canadian_non_quebec": "Approximately $9,000 per year",
         "international": "Approximately $27,000 per year"
     },
+    "requirements": {
+                "undergrad": "GPA 3.0, 2 recommendation letters",
+                "grad": "GPA 3.3, 3 letters, research proposal"
+            },
     "program_website": "https://www.concordia.ca/academics/undergraduate/computer-science.html"
 }
 

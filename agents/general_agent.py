@@ -1,6 +1,8 @@
 from typing import List
 import re
 import os
+
+import ollama
 from utils import config
 from langchain.schema import Document
 from langchain_community.vectorstores import FAISS, Chroma
@@ -99,3 +101,64 @@ class GeneralAgent(BaseAgent):
     def can_handle_query(self, query: str) -> float:
         """For compatibility with old code - returns default confidence"""
         return 0.5
+    
+
+    def _generate_concise_response(self, query: str, context: str) -> str:
+        prompt = f"""
+        You are a general knowledge assistant. Answer the question briefly and clearly.
+
+        Context: {context}
+
+        Question: {query}
+
+        Short Answer:"""
+
+        response = ollama.chat(
+            model=self.model_name,
+            messages=[
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": prompt}
+            ],
+            options={"temperature": 0.3}
+        )
+        return response['message']['content'].strip()
+
+    def _generate_detailed_response(self, query: str, context: str) -> str:
+        prompt = f"""
+        You are a general knowledge assistant. Provide a detailed and informative response.
+
+        Context: {context}
+
+        Question: {query}
+
+        Detailed Answer:"""
+
+        response = ollama.chat(
+            model=self.model_name,
+            messages=[
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": prompt}
+            ],
+            options={"temperature": 0.6}
+        )
+        return response['message']['content'].strip()
+
+    def _generate_clarifying_question(self, query: str, context: str) -> str:
+        prompt = f"""
+        You're unsure about the user's general knowledge question. Politely ask for clarification.
+
+        Context: {context}
+
+        Question: {query}
+
+        Clarifying Question:"""
+
+        response = ollama.chat(
+            model=self.model_name,
+            messages=[
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": prompt}
+            ],
+            options={"temperature": 0.5}
+        )
+        return response['message']['content'].strip()

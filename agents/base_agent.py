@@ -16,7 +16,8 @@ from langchain_chroma import Chroma
 
 from utils.config import OLLAMA_BASE_URL
 from utils.logger import get_logger
-
+from evaluation.rl_agent import RLAgent, State, Action
+from evaluation.metrics import ResponseEvaluator
 
 class BaseAgent(ABC):
     """Base class for all chatbot agents"""
@@ -38,6 +39,11 @@ class BaseAgent(ABC):
         
         self.logger.info(f"Initializing {self.__class__.__name__} with model: {model_name}")
         
+        # reinforcement learning
+        self.rl_agent = RLAgent()
+        self.response_evaluator = ResponseEvaluator()
+
+
         # Initialize the Ollama model
         self.llm = OllamaLLM(
             model=model_name,
@@ -85,81 +91,104 @@ class BaseAgent(ABC):
         return 0.5
     
     def process_query(self, query: str, conversation_id: str = None) -> Dict[str, Any]:
-        """Process the query and return a response"""
         self.logger.info(f"Processing query: '{query}'")
-        
-        # Retrieve relevant context
-        self.logger.debug("Retrieving relevant context")
+
+        # Context retrieval
         relevant_docs = self.retrieve_relevant_context(query)
         context = "\n".join([doc.page_content for doc in relevant_docs]) if relevant_docs else ""
-        
-        # Get conversation history
-        history = self.memory.chat_memory.messages if hasattr(self.memory, 'chat_memory') else []
-        history_text = ""
-        
-        # Format conversation history
-        if history:
-            self.logger.debug(f"Using conversation history with {len(history)} messages")
-            for i in range(0, len(history), 2):
-                if i+1 < len(history):
-                    history_text += f"User: {history[i].content}\nAssistant: {history[i+1].content}\n\n"
-        
+
+        # RL state definition
+        state = State(
+            query=query,
+            context=[doc.page_content for doc in relevant_docs],
+            previous_responses=[
+                msg.content for msg in self.memory.chat_memory.messages if hasattr(msg, 'content')
+            ],
+            agent_type=self.__class__.__name__
+        )
+
+        # Possible response strategies
+        responses = [
+            self._generate_concise_response(query, context),
+            self._generate_detailed_response(query, context),
+            self._generate_clarifying_question(query, context)
+        ]
+
+        # Create action choices
+        actions = [Action(response=r, confidence=0.5, agent_type=self.__class__.__name__) for r in responses]
+
+        # RL decision-making
+        chosen_action = self.rl_agent.choose_action(state, actions)
+
+        # Response evaluation and reward calculation
+        metrics = self.response_evaluator.evaluate_response(query, chosen_action.response)
+        reward = self.rl_agent.calculate_reward(metrics)
+
+        # Update RL agent with new experience
+        next_state = state  # can be modified as needed
+        self.rl_agent.train(state, chosen_action, reward, next_state)
+
+        # Update conversation memory
+        self.memory.save_context({"input": query}, {"output": chosen_action.response})
+
         # Create a more context-aware prompt
-        prompt = f"""Context: {context}
+        # prompt = f"""Context: {context}
 
-Previous conversation:
-{history_text}
+        return {
+            "answer": chosen_action.response,
+            "source": "agent",
+            "agent_type": self.__class__.__name__,
+            "confidence": self.can_handle_query(query),
+            "context_used": bool(relevant_docs)
+        }
 
-User query: {query}
+# Previous conversation:
+# {history_text}
 
-IMPORTANT: If the user's query contains pronouns like "it", "there", "that", etc., these pronouns refer to topics discussed in the previous conversation. Make sure to interpret these pronouns correctly based on the conversation history.
+# User query: {query}
 
-Please provide a helpful and accurate response to the user's query. If the query refers to previous information in the conversation, make sure to maintain that context."""
+# IMPORTANT: If the user's query contains pronouns like "it", "there", "that", etc., these pronouns refer to topics discussed in the previous conversation. Make sure to interpret these pronouns correctly based on the conversation history.
+
+# Please provide a helpful and accurate response to the user's query. If the query refers to previous information in the conversation, make sure to maintain that context."""
         
-        self.logger.debug(f"Sending prompt to Ollama model: {self.model_name}")
+        # self.logger.debug(f"Sending prompt to Ollama model: {self.model_name}")
         
-        # Generate response using direct Ollama API for more control
-        try:
-            response = ollama.chat(
-                model=self.model_name,
-                messages=[
-                    {"role": "system", "content": self.system_prompt},
-                    {"role": "user", "content": prompt}
-                ],
-                options={
-                    "temperature": self.temperature,
-                    "top_p": 0.95,
-                    "top_k": 40,
-                    "num_ctx": 4096,
-                    "repeat_penalty": 1.1
-                }
-            )
+        # # Generate response using direct Ollama API for more control
+        # try:
+        #     response = ollama.chat(
+        #         model=self.model_name,
+        #         messages=[
+        #             {"role": "system", "content": self.system_prompt},
+        #             {"role": "user", "content": prompt}
+        #         ],
+        #         options={
+        #             "temperature": self.temperature,
+        #             "top_p": 0.95,
+        #             "top_k": 40,
+        #             "num_ctx": 4096,
+        #             "repeat_penalty": 1.1
+        #         }
+        #     )
             
-            answer = response['message']['content']
-            self.logger.debug(f"Generated response: {answer[:100]}...")
+        #     answer = response['message']['content']
+        #     self.logger.debug(f"Generated response: {answer[:100]}...")
             
-            # Update memory
-            self.memory.save_context({"input": query}, {"output": answer})
-            self.logger.debug("Updated conversation memory")
+        #     # Update memory
+        #     self.memory.save_context({"input": query}, {"output": answer})
+        #     self.logger.debug("Updated conversation memory")
             
-            return {
-                "answer": answer,
-                "source": "agent",
-                "agent_type": self.__class__.__name__,
-                "confidence": self.can_handle_query(query),
-                "context_used": bool(relevant_docs)
-            }
-        except Exception as e:
-            self.logger.error(f"Error generating response: {str(e)}")
-            # Return a fallback response
-            return {
-                "answer": "I'm sorry, I encountered an error processing your request. Please try again.",
-                "source": "agent",
-                "agent_type": self.__class__.__name__,
-                "confidence": 0.0,
-                "context_used": False,
-                "error": str(e)
-            }
+     
+        # except Exception as e:
+        #     self.logger.error(f"Error generating response: {str(e)}")
+        #     # Return a fallback response
+        #     return {
+        #         "answer": "I'm sorry, I encountered an error processing your request. Please try again.",
+        #         "source": "agent",
+        #         "agent_type": self.__class__.__name__,
+        #         "confidence": 0.0,
+        #         "context_used": False,
+        #         "error": str(e)
+        #     }
     
     def get_memory(self) -> List[Dict[str, str]]:
         """Return the conversation history"""
@@ -209,3 +238,6 @@ Please provide a helpful and accurate response to the user's query. If the query
             "num_ctx": 4096,
             "repeat_penalty": 1.1
         }
+    
+   
+    

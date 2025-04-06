@@ -1,10 +1,11 @@
-from typing import List
+from typing import Dict, List
 import re
 import os
 from langchain.schema import Document
 from langchain_community.vectorstores import FAISS, Chroma
 from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.llms import Ollama
+import ollama
 
 from utils.config import ADMISSION_MODEL, MEMORY_TYPE, VECTOR_DB_PATH, CONCORDIA_CS_PROGRAM_INFO
 from agents.base_agent import BaseAgent
@@ -136,7 +137,62 @@ class AdmissionAgent(BaseAgent):
         
         return []
     
-    # Method replaced by LLM-based classification in the IntentClassifier
-    def can_handle_query(self, query: str) -> float:
-        """For compatibility with old code - returns default confidence"""
-        return 0.5
+    def _generate_concise_response(self, query: str, context: str) -> str:
+        prompt = f"""
+        You are a Concordia University admission assistant. Provide a short, precise answer.
+
+        Context: {context}
+
+        Question: {query}
+
+        Answer:"""
+
+        response = ollama.chat(
+            model=self.model_name,
+            messages=[
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": prompt}
+            ],
+            options={"temperature": 0.3}
+        )
+        return response['message']['content'].strip()
+
+    def _generate_detailed_response(self, query: str, context: str) -> str:
+        prompt = f"""
+        You are a Concordia University admission assistant. Provide a comprehensive, detailed answer.
+
+        Context: {context}
+
+        Question: {query}
+
+        Detailed Answer:"""
+
+        response = ollama.chat(
+            model=self.model_name,
+            messages=[
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": prompt}
+            ],
+            options={"temperature": 0.6}
+        )
+        return response['message']['content'].strip()
+
+    def _generate_clarifying_question(self, query: str, context: str) -> str:
+        prompt = f"""
+        You are unsure about the user's admission query. Politely ask a clarifying question.
+
+        Context: {context}
+
+        Question: {query}
+
+        Clarifying Question:"""
+
+        response = ollama.chat(
+            model=self.model_name,
+            messages=[
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": prompt}
+            ],
+            options={"temperature": 0.5}
+        )
+        return response['message']['content'].strip()
