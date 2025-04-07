@@ -24,7 +24,7 @@ fastapi==0.104.1
 filelock==3.18.0
 flatbuffers==25.2.10
 frozenlist==1.5.0
-fsspec==2025.3.2
+fsspec==2024.12.0 
 google-auth==2.38.0
 googleapis-common-protos==1.69.2
 grpcio==1.71.0
@@ -33,8 +33,7 @@ httpcore==1.0.7
 httptools==0.6.4
 httpx==0.28.1
 httpx-sse==0.4.0
-huggingface-hub==0.16.4
-# huggingface-hub==0.30.1
+
 humanfriendly==10.0
 idna==3.10
 importlib_metadata==8.6.1
@@ -129,5 +128,9 @@ tokenizers==0.13.3
 chromadb==0.6.3
 faiss-cpu==1.7.4
 sentence-transformers==2.2.2
-# nltk==3.8.1
 numpy==1.26.2
+# requests==2.25.1
+# matplotlib==3.4.3
+transformers==4.30.2
+huggingface_hub==0.24.4
+sentence-transformers==2.2.2
