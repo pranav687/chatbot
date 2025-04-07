@@ -118,7 +118,7 @@ Only respond with the JSON object, nothing else.
         
         # Predefined descriptions for known agent types
         descriptions = {
-            "GeneralAgent": "Handles general queries about various topics, serving as a fallback for questions that don't fit other specialized categories.",
+            "GeneralAgent": "An all-purpose assistant capable of handling a broad range of general knowledge queries, including math, science, logic, and everyday topics. Acts as the fallback agent for questions that do not fall under specialized domains.",
             "AdmissionAgent": "Specializes in university admissions, application processes, program information, tuition fees, and student enrollment.",
             "AIAgent": "Expert in artificial intelligence, machine learning, neural networks, deep learning, NLP, and related technologies.",
             "TestAgent": "Used for testing purposes only."
